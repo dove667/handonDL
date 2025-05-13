@@ -1,0 +1,15 @@
+# 忽略 notebooks 目录下的缓存文件
+notebooks/trainer_output
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
