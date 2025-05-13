@@ -204,7 +204,8 @@ def main():
         load_best_model_at_end=True if args.mode == "train" else False,# 训练结束时加载验证集表现最佳的模型
         metric_for_best_model="eval_loss", # 使用验证集 loss 作为判断最佳模型的指标
         greater_is_better=False,         # loss 越低越好
-        report_to="none"                 # 禁用向外部服务（如 W&B）报告
+        report_to="none",                 # 禁用向外部服务（如 W&B）报告
+        fp16=True # 启用混合精度训练
     )
 
     print("正在初始化 Trainer...")
