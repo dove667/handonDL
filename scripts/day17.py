@@ -1,6 +1,6 @@
 import torch
 import argparse
-from transformers import BertTokenizer, BertForQuestionAnswering, Trainer, TrainingArguments, default_data_collator
+from transformers import AutoTokenizer, BertForQuestionAnswering, Trainer, TrainingArguments, default_data_collator
 from datasets import load_dataset
 import numpy as np
 import os
@@ -16,9 +16,9 @@ def main():
                         help="总训练轮数 (仅在 train 模式下有效)。")
     parser.add_argument("--epoch", type=int, default=None,
                         help="测试模式下要加载的 checkpoint 对应的 epoch 编号。")
-    parser.add_argument("--train_batch_size", type=int, default=8,
+    parser.add_argument("--train_batch_size", type=int, default=16,
                         help="训练时每个设备的批次大小。")
-    parser.add_argument("--eval_batch_size", type=int, default=16,
+    parser.add_argument("--eval_batch_size", type=int, default=32,
                         help="评估时每个设备的批次大小。")
     parser.add_argument("--max_seq_length", type=int, default=384,
                         help="分词后输入序列的最大总长度。")
@@ -47,7 +47,7 @@ def main():
 
     # 2. 数据预处理与分词
     # 加载 BERT 的分词器
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
     # SQuAD 训练数据预处理函数
     def prepare_train_features(examples):
@@ -196,9 +196,9 @@ def main():
         per_device_train_batch_size=args.train_batch_size,  # 训练时每个设备的批次大小
         per_device_eval_batch_size=args.eval_batch_size,   # 评估时每个设备的批次大小
         warmup_steps=500,                # 学习率调度器的预热步数
-        weight_decay=0.01,               # 权重衰减强度
+        weight_decay=0.05,               # 权重衰减强度
         logging_dir="runs/Bert",         # 日志存储目录
-        logging_steps=10,                # 每隔多少步记录一次日志
+        logging_steps=500,                # 每隔多少步记录一次日志
         evaluation_strategy="epoch" if args.mode == "train" else "no", # 训练模式下每个 epoch 评估一次
         save_strategy="epoch" if args.mode == "train" else "no",       # 训练模式下每个 epoch 保存一次 checkpoint
         load_best_model_at_end=True if args.mode == "train" else False,# 训练结束时加载验证集表现最佳的模型
