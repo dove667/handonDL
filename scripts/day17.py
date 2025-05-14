@@ -24,10 +24,12 @@ def main():
                         help="分词后输入序列的最大总长度。")
     parser.add_argument("--doc_stride", type=int, default=128,
                         help="当文档过长时，分割成较短片段时的步长。")
+    parser.add_argument("--val", default=False, action="store_true",
+                        help="在测试模式下，是否使用验证集进行预测。")
 
     args = parser.parse_args()
     
-    output_dir = "model/Bert/"
+    output_dir = "/home/dove/DLModel/Bert"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -198,12 +200,12 @@ def main():
         warmup_steps=500,                # 学习率调度器的预热步数
         weight_decay=0.05,               # 权重衰减强度
         logging_dir="runs/Bert",         # 日志存储目录
-        logging_steps=500,                # 每隔多少步记录一次日志
-        evaluation_strategy="epoch" if args.mode == "train" else "no", # 训练模式下每个 epoch 评估一次
+        logging_steps=500,               # 每隔多少步记录一次日志
+        eval_strategy="epoch" if args.mode == "train" else "no", # 训练模式下每个 epoch 评估一次
         save_strategy="epoch" if args.mode == "train" else "no",       # 训练模式下每个 epoch 保存一次 checkpoint
-        load_best_model_at_end=True if args.mode == "train" else False,# 训练结束时加载验证集表现最佳的模型
-        metric_for_best_model="eval_loss", # 使用验证集 loss 作为判断最佳模型的指标
-        greater_is_better=False,         # loss 越低越好
+        # load_best_model_at_end=True if args.mode == "train" else False,# 训练结束时加载验证集表现最佳的模型
+        # metric_for_best_model="eval_loss", # 使用验证集 loss 作为判断最佳模型的指标
+        greater_is_better=False,          # loss 越低越好
         report_to="none",                 # 禁用向外部服务（如 W&B）报告
         fp16=True # 启用混合精度训练
     )
@@ -237,106 +239,107 @@ def main():
             return
 
         print(f"正在使用 epoch {args.epoch} 的模型进行交互式测试...")
+        
+        if args.val:
+            # 需要原始验证数据集用于获取上下文和进行映射
+            validation_features = tokenized_validation_dataset
+            validation_examples = validation_dataset
 
-        # 需要原始验证数据集用于获取上下文和进行映射
-        validation_features = tokenized_validation_dataset
-        validation_examples = validation_dataset
+            # 获取预测结果
+            print("正在验证集上获取预测结果...")
+            # Trainer.predict 返回一个 PredictionOutput 对象，其中包含预测的 logits
+            predictions = trainer.predict(validation_features)
+            start_logits, end_logits = predictions.predictions
 
-        # 获取预测结果
-        print("正在验证集上获取预测结果...")
-        # Trainer.predict 返回一个 PredictionOutput 对象，其中包含预测的 logits
-        predictions = trainer.predict(validation_features)
-        start_logits, end_logits = predictions.predictions
+            # 问答预测结果后处理
+            # 这是一个简化的后处理版本，官方的 SQuAD 评估脚本更健壮
+            def postprocess_qa_predictions(examples, features, start_logits, end_logits, n_best_size=20, max_answer_length=30):
+                # 构建一个从 example ID 到其对应 features 索引列表的映射
+                example_to_features = defaultdict(list)
+                for idx, feature in enumerate(features):
+                    example_to_features[feature["example_id"]].append(idx)
 
-        # 问答预测结果后处理
-        # 这是一个简化的后处理版本，官方的 SQuAD 评估脚本更健壮
-        def postprocess_qa_predictions(examples, features, start_logits, end_logits, n_best_size=20, max_answer_length=30):
-            # 构建一个从 example ID 到其对应 features 索引列表的映射
-            example_to_features = defaultdict(list)
-            for idx, feature in enumerate(features):
-                example_to_features[feature["example_id"]].append(idx)
+                # 存储最终预测结果的字典
+                all_predictions = {}
 
-            # 存储最终预测结果的字典
-            all_predictions = {}
+                # 遍历所有原始示例
+                for example_index, example in enumerate(tqdm(examples)):
+                    # 获取与当前示例关联的特征索引列表
+                    feature_indices = example_to_features[example["id"]]
 
-            # 遍历所有原始示例
-            for example_index, example in enumerate(tqdm(examples)):
-                # 获取与当前示例关联的特征索引列表
-                feature_indices = example_to_features[example["id"]]
+                    min_null_score = None # 用于 SQuAD v2，记录无答案预测的得分
+                    valid_answers = [] # 存储当前示例所有有效答案跨度的信息
 
-                min_null_score = None # 用于 SQuAD v2，记录无答案预测的得分
-                valid_answers = [] # 存储当前示例所有有效答案跨度的信息
+                    context = example["context"] # 原始上下文文本
 
-                context = example["context"] # 原始上下文文本
+                    # 遍历与当前示例关联的所有特征，找到最佳答案跨度
+                    for feature_index in feature_indices:
+                        # 获取当前特征的起始和结束 logits
+                        start_logit = start_logits[feature_index]
+                        end_logit = end_logits[feature_index]
+                        # 当前特征的偏移映射
+                        offset_mapping = features[feature_index]["offset_mapping"]
 
-                # 遍历与当前示例关联的所有特征，找到最佳答案跨度
-                for feature_index in feature_indices:
-                    # 获取当前特征的起始和结束 logits
-                    start_logit = start_logits[feature_index]
-                    end_logit = end_logits[feature_index]
-                    # 当前特征的偏移映射
-                    offset_mapping = features[feature_index]["offset_mapping"]
+                        # 更新最小无答案得分 (仅 SQuAD v2 需要)
+                        # 无答案得分是 [CLS] token 的起始和结束 logits 之和
+                        cls_index = features[feature_index]["input_ids"].index(tokenizer.cls_token_id)
+                        feature_null_score = start_logit[cls_index] + end_logit[cls_index]
+                        if min_null_score is None or min_null_score < feature_null_score:
+                            min_null_score = feature_null_score
 
-                    # 更新最小无答案得分 (仅 SQuAD v2 需要)
-                    # 无答案得分是 [CLS] token 的起始和结束 logits 之和
-                    cls_index = features[feature_index]["input_ids"].index(tokenizer.cls_token_id)
-                    feature_null_score = start_logit[cls_index] + end_logit[cls_index]
-                    if min_null_score is None or min_null_score < feature_null_score:
-                        min_null_score = feature_null_score
+                        # 找到 logits 最高的 n_best_size 个起始和结束位置
+                        start_indexes = np.argsort(start_logit)[-1 : -n_best_size - 1 : -1].tolist()
+                        end_indexes = np.argsort(end_logit)[-1 : -n_best_size - 1 : -1].tolist()
 
-                    # 找到 logits 最高的 n_best_size 个起始和结束位置
-                    start_indexes = np.argsort(start_logit)[-1 : -n_best_size - 1 : -1].tolist()
-                    end_indexes = np.argsort(end_logit)[-1 : -n_best_size - 1 : -1].tolist()
+                        # 遍历所有可能的起始和结束位置组合
+                        for start_index in start_indexes:
+                            for end_index in end_indexes:
+                                # 过滤掉无效的答案跨度：
+                                # 1. 索引超出偏移映射范围
+                                # 2. 偏移映射为 None (通常是特殊 token)
+                                if (
+                                    start_index >= len(offset_mapping)
+                                    or end_index >= len(offset_mapping)
+                                    or offset_mapping[start_index] is None
+                                    or offset_mapping[end_index] is None
+                                ):
+                                    continue
+                                # 3. 结束索引小于起始索引 (跨度无效)
+                                # 4. 答案长度超过最大允许长度
+                                if end_index < start_index or end_index - start_index + 1 > max_answer_length:
+                                    continue
 
-                    # 遍历所有可能的起始和结束位置组合
-                    for start_index in start_indexes:
-                        for end_index in end_indexes:
-                            # 过滤掉无效的答案跨度：
-                            # 1. 索引超出偏移映射范围
-                            # 2. 偏移映射为 None (通常是特殊 token)
-                            if (
-                                start_index >= len(offset_mapping)
-                                or end_index >= len(offset_mapping)
-                                or offset_mapping[start_index] is None
-                                or offset_mapping[end_index] is None
-                            ):
-                                continue
-                            # 3. 结束索引小于起始索引 (跨度无效)
-                            # 4. 答案长度超过最大允许长度
-                            if end_index < start_index or end_index - start_index + 1 > max_answer_length:
-                                continue
+                                # 获取答案在原始上下文中的字符起始和结束位置
+                                start_char = offset_mapping[start_index][0]
+                                end_char = offset_mapping[end_index][1]
 
-                            # 获取答案在原始上下文中的字符起始和结束位置
-                            start_char = offset_mapping[start_index][0]
-                            end_char = offset_mapping[end_index][1]
+                                # 将有效答案跨度及其得分、文本添加到列表中
+                                valid_answers.append(
+                                    {"offsets": (start_char, end_char), "score": start_logit[start_index] + end_logit[end_index], "text": context[start_char: end_char]}
+                                )
 
-                            # 将有效答案跨度及其得分、文本添加到列表中
-                            valid_answers.append(
-                                {"offsets": (start_char, end_char), "score": start_logit[start_index] + end_logit[end_index], "text": context[start_char: end_char]}
-                            )
-
-                # 如果找到了有效答案，选择得分最高的作为当前示例的最佳答案
-                if len(valid_answers) > 0:
-                    best_answer = sorted(valid_answers, key=lambda x: x["score"], reverse=True)[0]
-                else:
+                    # 如果找到了有效答案，选择得分最高的作为当前示例的最佳答案
+                    if len(valid_answers) > 0:
+                        best_answer = sorted(valid_answers, key=lambda x: x["score"], reverse=True)[0]
+                    else:
                     # 如果没有找到有效答案，将最佳答案设置为空文本和得分为 0
-                    best_answer = {"text": "", "score": 0.0}
+                        best_answer = {"text": "", "score": 0.0}
 
-                # 如果无答案预测的得分高于最佳答案的得分，则预测结果为空字符串（表示无答案）
-                if min_null_score is not None and min_null_score > best_answer["score"]:
+                    # 如果无答案预测的得分高于最佳答案的得分，则预测结果为空字符串（表示无答案）
+                    if min_null_score is not None and min_null_score > best_answer["score"]:
                      all_predictions[example["id"]] = ""
-                else:
-                    # 否则，将最佳答案的文本作为预测结果
-                    all_predictions[example["id"]] = best_answer["text"]
+                    else:
+                        # 否则，将最佳答案的文本作为预测结果
+                        all_predictions[example["id"]] = best_answer["text"]
 
-            return all_predictions
+                return all_predictions
 
-        # 获取文本格式的预测结果
-        print("正在进行预测结果后处理...")
-        # 注意：这里调用 postprocess_qa_predictions 函数，但其结果 all_predictions 并没有被使用。
-        # 这部分代码主要是为了演示如何进行后处理，实际交互测试使用的是下面的代码。
-        # 如果需要完整的评估指标 (EM/F1)，需要使用官方的 SQuAD 评估脚本并传入 all_predictions。
-        # predictions_text = postprocess_qa_predictions(validation_examples, validation_features, start_logits, end_logits)
+            # 获取文本格式的预测结果
+            print("正在进行预测结果后处理...")
+            # 注意：这里调用 postprocess_qa_predictions 函数，但其结果 all_predictions 并没有被使用。
+            # 这部分代码主要是为了演示如何进行后处理，实际交互测试使用的是下面的代码。
+            # 如果需要完整的评估指标 (EM/F1)，需要使用官方的 SQuAD 评估脚本并传入 all_predictions。
+            # predictions_text = postprocess_qa_predictions(validation_examples, validation_features, start_logits, end_logits)
 
 
         # 交互式测试循环
