@@ -25,7 +25,7 @@ def get_transform():
     return transform
 
 # 3. 加载和分割数据集
-def load_datasets(transform, data_root='data'):
+def load_datasets(transform, data_root='../data'):
     """Loads CIFAR10 datasets and splits the training set."""
     full_train_dataset = datasets.CIFAR10(root=data_root, train=True, download=True, transform=transform)
     test_dataset = datasets.CIFAR10(root=data_root, train=False, download=True, transform=transform)

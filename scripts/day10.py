@@ -29,7 +29,7 @@ transform = transforms.Compose([
 ])
 
 # Define data directory
-data_dir = 'data'
+data_dir = '../data'
 
 def get_data_loaders(data_dir, transform, batch_size_train=64, batch_size_test=1000, num_workers=2):
     print('Loading data...')

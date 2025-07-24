@@ -29,7 +29,7 @@ def main():
 
     args = parser.parse_args()
     
-    output_dir = "/home/dove/DLModel/Bert"
+    output_dir = os.path.expanduser("~/DLModel/Bert")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
