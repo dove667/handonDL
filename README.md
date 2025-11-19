@@ -1,106 +1,78 @@
-# handonML
-这是本人在25spring写的学习笔记兼实战项目。当时我已经对ML、DL理论有了比较深入的了解，但是一直找不到好的方法练习具体的代码实现：读官方文档效率太低，网上优质视频也不多，（打脸，后面有优质视频推荐）于是决定自己边写边学。
+# handonDL — 深度学习学习笔记与实践
 
-本项目涵盖了数据集加载、清洗、预处理，模型流水线的搭建、训练和评估，模型保存和导出、部署等一整套流程。内容包括但不限于：   
-- sklearn中大部分常用的API和常用的回归、分类、聚类模型和数据降维、评估metric   
-- 使用pytorch从0实现的MLP，CNNs，LSTM小型神经网络  
-- 基于huggingface的transformer家族：使用预训练模型（BERT）做迁移学习，huggingface的常用的model、tokenizer、pipeline、trainer等API，提示词工程（promt engineering），高效微调（PEFT）
+这是一个以深度学习为主的个人学习与实践仓库。原有的机器学习（ML）笔记已从主路径中剥离，目前仓库集中记录我在 PyTorch 与 Hugging Face 生态下的实践、实验与思考：包含 Jupyter Notebook 的探索记录与整理成脚本的训练/评估流程。
 
-notebook中穿插了我写代码的时候debug过程中的血泪教训和总结，特别是在不熟悉api使用规范的时候（PhaseⅠ）。因此jupyter中的代码有些散乱，我按照天数整合到了scripts中，尽量向论文提供的优质脚本靠近。
+写这个仓库的初衷很简单：通过“做中学”把概念、API 与工程实践结合起来。代码中有实验记录、超参尝试、以及遇到的问题与解决办法，适合想通过实战快速理解深度学习工具链的读者参考与复现。
 
-最后是关于设备。我的机器环境是windows的wsl ubuntu，cpu是CORE i5，没有独立显卡。
-cpu运行sklearn中的传统机器学习模型绰绰有余，小型深度学习模型也是可以训练几个epoch的。我的wsl最大内存大约是8G，不精确估计能加载并推理的最大模型参数量约为1B（FP32）。微调模型不要用cpu。涉及微调大模型的章节我在下面的**学习规划详情**中备注上了（gpu）。
----
-重要：为了让服务器的存储不爆，将ML和DL分开，本仓库只有DL，ML见另一个仓库handonML。
----
 
-## 📋 项目结构
+## 主要内容（高层说明）
 
-```text
-├── data/                  # 各项目数据集       
-│   ├── MNIST/             
-│   ├── cifar10/                        
-│   └── 
-│
-├── images/                # notebook中的图片
-│
-├── notebooks/             # Jupyter Notebook
-│
-├── scripts/               # 训练脚本
-│
-├── README.md              # 本文件
-├── TODO.md                # 详细每日待办清单
+- PyTorch 小型网络实现与训练脚本（MLP / CNN / RNN 等经典模型的练习版）
+- 基于 Hugging Face 的 Transformer 实验（微调、数据集处理、tokenizer 用法、Trainer 用例）
+- Jupyter Notebook：探索性实验、可视化与调试记录（实验思路与中间结果）
+- 脚本（scripts/）: 将 notebook 中成熟或重复可运行的代码整理为脚本以便复现
+
+注意：仓库中有些高成本（大模型微调、训练）相关内容被标注为“需要 GPU”，在没有 GPU 的环境下可使用小规模实例或读取预训练结果进行推理与分析。
+
+## 📁 当前项目结构（简要）
+
+```
+handonDL/
+├── images/         # Notebook 中的示意图与结果图
+├── notebook/       # Jupyter notebooks（按天/主题组织）
+├── scripts/        # 可直接运行的训练/评估脚本（按天/任务）
+├── LICENSE
+├── README.md
 ```
 
----
+在本仓库中，你会看到以 dayX 命名的 notebook 与对应的脚本（例如 `notebook/day10.ipynb` 与 `scripts/day10.py`）。Notebook 用于交互式探索，scripts 用于可重复运行的流水线。
+
+## 如何开始
+
+1. 克隆仓库并进入目录。
+2. 建议使用虚拟环境（venv/conda），安装常见依赖：PyTorch、transformers、datasets、tqdm 等。示例（macOS / zsh 下）:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+# 然后使用 pip 安装依赖，例如：
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install transformers datasets tqdm
+```
+
+3. 运行 notebook：
+
+```bash
+jupyter lab        # 或 jupyter notebook
+```
+
+4. 运行脚本（以 CPU 为例）：
+
+```bash
+python3 scripts/day10.py
+```
+
+说明：若要在 GPU 上运行，请确保 CUDA 与相应的 PyTorch 版本匹配，并在运行脚本时指定 device 或使用 Trainer 的 `--device` 参数。
+
+## 学习计划（保留的练习方向）
+
+下面是仓库关联的学习任务与练习方向（按主题分组，时间节点与具体实现可能与仓库中的 notebook/script 对应）：
+
+- PyTorch 基础与经典网络：tensor/autograd、Dataset/DataLoader、训练循环、模型保存/加载、可视化（TensorBoard）
+- 小型任务实战：MNIST / CIFAR-10 / IMDB（作为练习目标，用以掌握训练/评估/调参流程）
+- Transformer 应用与微调：使用 Hugging Face 的 tokenizer/Trainer、datasets，做分类/问答/生成任务的微调（标注需要 GPU 的项）
+- 轻量化与工程化：LoRA/Adapter 简介、量化/导出（ONNX）、推理优化与部署思路
+
+（仓库中 notebook 与 scripts 提供了对应的实验记录；未完成或高成本的任务会以“需要 GPU”或“未来计划”形式说明。）
+
+## 贡献与复现建议
+
+- 我欢迎 Issue 或 PR（清晰描述复现步骤与问题）。
+- 在复现实验时，请先在小数据/小模型上验证流程，然后再放到更大规模上跑。大模型训练请在具备 GPU 的环境中进行。
+
+## 致谢与许可
+
+本仓库用于个人学习与分享，代码尽量保持简洁、易读，部分实现参考自官方文档与社区优秀示例，均在代码注释中注明来源。仓库采用 LICENSE 中的许可条款。
 
 
-# 📚 学习规划详情（旧）
 
-## Phase I：机器学习基础 (Week 1)
-
-### Week 1: 传统机器学习工具链
-* **Day 1-2**：数据预处理与基础分类
-  * 工具：`SimpleImputer`, `StandardScaler`, `OneHotEncoder`, `train_test_split`
-  * 模型：`LogisticRegression`
-  * 评估：`classification_report`
-  * 实战：UCI Adult 数据集收入预测 (目标准确率 >70%)
-
-* **Day 3-4**：回归模型与模型优化
-  * 模型：`LinearRegression`, ``XGBoost``
-  * 优化：`cross_val_score`, `GridSearchCV`
-  * 实战：California Housing 房价预测 (目标 R² >0.7)
-
-* **Day 5-6**：聚类与降维
-  * 降维：`PCA`
-  * 模型：`KMeans` `GMM` `SpectralClustering`
-  * 实战：MNIST 手写数字聚类与可视化（KMeans 聚类，t-SNE/PCA 可视化，评估聚类效果）
-  
-* **Day 7**： `SVC` `SVR` 比较分析支持向量机的特点
-
-## Phase II：深度学习实战 (Week 2-3)
-
-### Week 2: PyTorch 基础与 经典网络架构 (Day 8-14)
-> [pytorch4h速通 youtube](https://www.youtube.com/watch?v=EMXfZB8FVUA&list=PLqnslRFeH2UrcDBWF5mfPGpqQDSta6VK4&index=1)   
-* **Day 8**：`tensor` & `autograd` & `cuda` &  `Dataset` & `DataLoader`
-* **Day 9** `nn.Module` / `optim ` / `tensorboard`
-* **Day 10**：MLP on MNIST 架构搭建 & 训练 & 精度评估（准确率>90%）
-* **Day 11**：简单 CNN on CIFAR10 架构搭建与训练（目标准确率 ≥70%）
-* **Day 12**：LSTM RNN on IMDB 情感分类 (目标准确率 ≥80%)
-* **Day 13**：模型可视化（tensorboard）
-
-### Week 3: 先进网络架构 & transformer (Day 15-21)
-> 本周聚焦 Huggingface Transformers 框架，深入理解 BERT、Vision Transformer (ViT)、Prompt Engineering、微调（Fine-tuning）、轻量化方法（如LoRA原理）等。
-
-* **Day 15**：Huggingface Transformers 基础 
-`Pipeline`,`AutoTokenizer`,`AutoModel`    
-* **Day 16（gpu）**：Huggingface Datasets & Trainer API 进阶
-`load_dataset`, `DataCollatorWithPadding`, `TrainingArguments`, `Trainer`,`evaluate`,`tqdm`
-* **Day 17（gpu）**： 在SQuAD 问答任务微调bert，使用huggingface hub管理模型仓库
-* **Day 18**：Prompt Engineering 入门（Zero-shot/Prompt-based 分类、文本生成）
-* **Day 19**：Vision Transformer (ViT) on CIFAR-10（微调与评估，目标准确率≥85%）
-* **Day 20**：预训练大模型，轻量化微调方法原理（LoRA/Adapter 理论，CPU 上小模型实验），量化
-* **Day 21**：总结复盘 & 代码整理，撰写 transformer 应用经验文档
-
-## Phase III：综合项目与前沿探索 (Week 4)
-
-> 本阶段聚焦真实场景下的综合应用与前沿探索，涵盖文本/图像生成、微调、轻量化部署、RLHF、AutoML 等。
-
-* **Day 22-23**：文本生成/摘要/问答系统（基于 Huggingface Pipeline，尝试 T5/BART/DistilGPT2 等小模型）
-* **Day 24-25**：图像分类/检索/生成（ViT 微调、Diffusers 文生图小模型实验）
-* **Day 26**：LoRA/Adapter 微调小模型实战（如 DistilBERT/DistilGPT2）
-* **Day 27**：AutoML/轻量化部署（Optuna 超参搜索、ONNX 导出、CPU 推理优化）
-* **Day 28**：RLHF 理论与小规模实验（如 reward model 微调、数据构造流程）
-* **Day 29**：综合项目：端到端文本/图像智能应用（如“智能摘要+检索”或“文本生成+情感分析”一体化系统）
-* **Day 30**：整理代码至 GitHub，撰写项目文档 & 后续规划（如强化学习、MLOps、AIGC 等）
-
-## 📈 项目里程碑
-
-| 周数  | 主要目标 | 验收标准 |
-|-------|---------|----------|
-| Week 1 | 机器学习基础 | Adult 收入预测acc >70%<br>California Housing 房价预测 R² >0.7 |
-| Week 2 | PyTorch 基础 | MNIST 数字分类acc >90% <br> CIFAR10 对象分类 acc>70% <br> IMDB 情感分类 acc >80%
-| Week 3 | Transformer & 先进网络 | BERT/ViT 微调准确率 ≥85%，Prompt/LoRA 理论与实验 |
-| Week 4+ | 综合/前沿 | 文本/图像生成、LoRA 微调、AutoML、RLHF 等前沿项目实战 |
-
----
