@@ -25,6 +25,20 @@ handonDL/
 ├── README.md
 ```
 
+## 📚 Notebook 索引
+
+- **Day 1**: PyTorch 基础 (Tensor, Autograd, Linear Regression)
+- **Day 2**: PyTorch 核心模块 (nn.Module, DataLoader, Logistic Regression)
+- **Day 3**: 多层感知机 (MLP) 与 FashionMNIST
+- **Day 4**: 卷积神经网络 (CNN) 与 CIFAR-10 (数据增强, Early Stopping)
+- **Day 5**: 循环神经网络 (LSTM) 与 IMDB 情感分析
+- **Day 6**: 工程实践 (TensorBoard, 模型保存/加载, ONNX)
+- **Day 7**: Hugging Face Transformers 基础 (Pipeline, Tokenizer, Model)
+- **Day 8**: Hugging Face Trainer API 进阶 (GLUE MRPC)
+- **Day 9**: BERT 微调与模型部署 (Hugging Face Hub)
+- **Day 10**: 分布式训练与推理 (DataParallel, DistributedDataParallel)
+- **Day 11**: 实验追踪与可视化 (Weights & Biases 集成)
+
 在本仓库中，你会看到以 dayX 命名的 notebook 与对应的脚本（例如 `notebook/day10.ipynb` 与 `scripts/day10.py`）。Notebook 用于交互式探索，scripts 用于可重复运行的流水线。
 
 ## 如何开始
